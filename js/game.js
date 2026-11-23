@@ -18,6 +18,7 @@
   let gender = store.get('gender', null);
   function g(str) {
     return String(str).replace(/\[([^\/\]]*)\/([^\]]*)\]/g, (_, m, f) => {
+      if (m === f) return m;
       if (gender === 'm') return m;
       if (gender === 'f') return f;
       if (m && f) return m + '/' + f;
@@ -54,10 +55,21 @@
     toast._t = setTimeout(() => t.classList.remove('show'), 2200);
   }
 
+  // ריבועי תשובה לפאזל: מערך של 4 תוויות (מהכי הרבה להכי מעט), או אובייקטים חלקיים.
+  // ניקוד, צבע ואימוג'י נלקחים מברירת המחדל לפי המיקום, אם לא הוגדרו.
+  function normalizeSlots(custom) {
+    if (!custom) return DEFAULT_SLOTS;
+    return DEFAULT_SLOTS.map((d, i) => {
+      const c = custom[i];
+      if (c == null) return d;
+      return Object.assign({}, d, typeof c === 'string' ? { label: c } : c);
+    });
+  }
+
   // ---------- התחלת פאזל ----------
   function startPuzzle(p, how) {
     puzzle = p; mode = how;
-    slots = p.slots || DEFAULT_SLOTS;
+    slots = normalizeSlots(p.slots);
     placement = [null, null, null, null]; // לכל כרטיס: null (במטריצה) | 0..3 | 'skip'
     moves = 0; selected = null;
     startedAt = Date.now();
@@ -97,7 +109,7 @@
     $$('.slot').forEach(bindSlot);
     updateDone();
     show('screen-game');
-    L.log('puzzle_start', { pid: p.id, mode: how, gender });
+    L.log('puzzle_start', { pid: p.id, topic: p.topic, mode: how });
   }
 
   // ---------- גרירה (עכבר + מגע) ----------
@@ -333,7 +345,7 @@
     if (!played.includes(puzzle.id)) { played.push(puzzle.id); store.set('played', played); }
 
     L.log('puzzle_complete', {
-      pid: puzzle.id, mode, ms, moves, result: res.key,
+      pid: puzzle.id, topic: puzzle.topic, mode, ms, moves, result: res.key, result_title: res.title,
       placement: placement.map(p => (p === null ? 'matrix' : p)),
       skipped: placement.filter(p => p === 'skip').length,
     });
@@ -397,6 +409,7 @@
   $$('[data-gender]').forEach(b => b.addEventListener('click', () => {
     gender = b.dataset.gender;
     store.set('gender', gender);
+    L.setProps({ gender });
     L.log('gender_select', { gender });
     boot();
   }));
@@ -451,6 +464,7 @@
     else startPuzzle(PUZZLES[dailyIndex()], 'daily');
   }
 
+  if (gender) L.setProps({ gender });
   L.log('session_start', { newUser: L.isNewUser, sharedPid: params.get('p'), streak: store.get('streak', 0) });
   if (params.has('debug')) debugPanel();
 

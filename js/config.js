@@ -1,8 +1,9 @@
 // הגדרות כלליות
 window.QUAD_CONFIG = {
-  // כתובת שרת לאיסוף לוגים (POST של JSON). ריק = לוגים נשמרים רק בדפדפן.
-  // לדוגמה: Google Apps Script / Supabase Edge Function / כל endpoint שמקבל JSON.
-  LOG_ENDPOINT: '',
+  // PostHog: מפתח הפרויקט (Project API Key, מתחיל ב-phc_). ריק = לוגים נשמרים רק בדפדפן.
+  POSTHOG_KEY: '',
+  // שרת PostHog: אירופה https://eu.i.posthog.com | ארה"ב https://us.i.posthog.com
+  POSTHOG_HOST: 'https://eu.i.posthog.com',
 
   // כמה אירועים לשמור מקומית בדפדפן (לצפייה ב-?debug=1)
   LOCAL_LOG_LIMIT: 1000,

@@ -25,11 +25,36 @@
 - כפתור שיתוף (Web Share בטלפון, וואטסאפ, העתקה) עם התוצאה וגריד אימוג'ים 🟩🟦🟧🟥.
 - הקישור המשותף פותח **את אותו פאזל** (`?p=id`) ומכיל `via=<uid>` כדי למדוד מי הביא את מי.
 
-## לוגים
-כל אירוע נשמר ב-localStorage, ואם מגדירים `LOG_ENDPOINT` ב-`config.js` נשלח גם לשרת (POST, `{events:[...]}`).
-אירועים: `session_start, intro_view, gender_select, puzzle_start, drag_start, card_drop, drop_miss,
-puzzle_complete (זמן, מספר מהלכים, מיקום כל היגד, תוצאה), share_click, share_success, share_cancel,
-next_click, replay_click, page_hidden, js_error`.
-כל אירוע כולל: מזהה משתמש קבוע, מזהה סשן, referrer, utm, via, גודל מסך, מגע.
+## הוספת פאזל
+כל פאזל ב-`js/puzzles.js` מגדיר: `id`, `topic` (נושא), `title`, `emoji`, שני צירים (`rows`, `cols`),
+4 היגדים (`cards`), 3 משפטי תוצאה לכל ציר (`rowRes`, `colRes`), ואופציונלית `slots` – 4 תוויות משלו
+לריבועי התשובה (מהכי הרבה להכי מעט), למשל `['כל שבת', 'פעם בחודש', 'פעם בשנה', 'רק בתמונות']`.
 
-מצב דיבאג: `?debug=1` – מונה אירועים, הורדת JSON ובחירת פאזל ידנית.
+אחרי עריכה מריצים בדיקה: `node tools/validate.js` – בודק מבנה, מזהים כפולים, סוגריים מגדריים ואורך טקסטים.
+
+## לוגים – PostHog
+1. ב-PostHog: Project settings → Project API Key (מתחיל ב-`phc_`).
+2. ב-`js/config.js`: למלא `POSTHOG_KEY`, ולוודא ש-`POSTHOG_HOST` תואם לאזור הפרויקט (EU / US).
+
+בלי מפתח – הכל עובד, והלוגים נשמרים רק בדפדפן (`?debug=1` להצגה והורדה).
+מזהה המשתמש ב-PostHog זהה למזהה המקומי, ו-autocapture כבוי כדי שהנתונים יהיו נקיים.
+
+**אירועים**
+| אירוע | מאפיינים עיקריים |
+|---|---|
+| `session_start` | newUser, sharedPid, streak |
+| `intro_view`, `gender_select` | gender |
+| `puzzle_start` | pid, topic, mode (daily / shared / more) |
+| `drag_start`, `card_drop`, `drop_miss` | card, from, to, how (drag / tap), ms |
+| `puzzle_complete` | pid, topic, ms, moves, placement, skipped, result, result_title |
+| `share_click`, `share_success`, `share_cancel` | channel (native / whatsapp / copy) |
+| `next_click`, `replay_click`, `js_error` | |
+
+מאפיינים קבועים בכל אירוע: `gender`, `via`, `referred_by` (מי שיתף), `utm_*`, `screen`, `touch`.
+
+**דשבורדים מומלצים ב-PostHog**
+- משפך: `puzzle_start` → `puzzle_complete` → `share_click` → `share_success` (לפי pid / topic).
+- ויראליות: משתמשים חדשים עם `referred_by` מוגדר, ביחס לשיתופים.
+- פאזלים שנזנחים: `puzzle_start` בלי `puzzle_complete`, וכמה פעמים בוחרים "לא מתאים" (`skipped`).
+- גרירה מול הקשה: `card_drop` לפי `how` (לזהות קושי בגרירה במובייל).
+- חזרה יומית: Retention על `puzzle_complete`.
