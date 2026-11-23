@@ -23,13 +23,33 @@ for (const p of P) {
   if (!Array.isArray(p.rows) || p.rows.length !== 2) err(id, 'rows חייב להיות 2');
   [...(p.rows || []), ...(p.cols || [])].forEach(a => { if (a.length > 16) warn(id, 'כותרת ציר ארוכה: ' + a); });
   if (!Array.isArray(p.cols) || p.cols.length !== 2) err(id, 'cols חייב להיות 2');
-  if (!Array.isArray(p.cards) || p.cards.length !== 4) err(id, 'cards חייב להיות 4');
-  (p.cards || []).forEach((c, i) => {
-    if (!c.e) err(id, 'כרטיס ' + i + ' בלי אימוג׳י');
-    checkText(id, 'כרטיס ' + i, c.t);
-    const len = (c.t || '').replace(/\[([^\/\]]*)\/([^\]]*)\]/g, '$2').length;
-    if (len > 40) warn(id, 'כרטיס ' + i + ' ארוך (' + len + ' תווים)');
+  if (p.cells) {
+    if (p.cells.length !== 4) err(id, 'cells חייב להיות 4');
+    p.cells.forEach((c, i) => {
+      if (!c.e) err(id, 'רמז ' + i + ' בלי אימוג׳י');
+      checkText(id, 'רמז ' + i, c.t);
+      const len = (c.t || '').replace(/\[([^\/\]]*)\/([^\]]*)\]/g, '$2').length;
+      if (len > 34) warn(id, 'רמז ' + i + ' ארוך (' + len + ' תווים)');
+    });
+  }
+  if (p.words) {
+    if (p.words.length !== 4) err(id, 'words חייב להיות 4');
+    p.words.forEach((w, i) => {
+      const label = typeof w === 'string' ? w : w.label;
+      checkText(id, 'מילה ' + i, label);
+      if ((label || '').replace(/\[([^\/\]]*)\/([^\]]*)\]/g, '$2').length > 14) warn(id, 'מילה ' + i + ' ארוכה: ' + label);
+    });
+  }
+  if (p.ideal) {
+    if (p.ideal.length !== 4 || [...p.ideal].sort().join() !== '0,1,2,3') err(id, 'ideal חייב להיות סידור של 0,1,2,3');
+    if (!p.idealRes) warn(id, 'יש ideal בלי idealRes');
+  }
+  if (p.idealRes) { checkText(id, 'idealRes.title', p.idealRes.title); checkText(id, 'idealRes.text', p.idealRes.text); }
+  (p.notes || []).forEach((n, i) => {
+    if (!(n.word >= 0 && n.word <= 3 && n.cell >= 0 && n.cell <= 3)) err(id, 'note ' + i + ': word/cell לא תקינים');
+    checkText(id, 'note ' + i, n.text);
   });
+  if (p.question) checkText(id, 'question', p.question);
   for (const k of ['rowRes', 'colRes']) {
     if (!Array.isArray(p[k]) || p[k].length !== 3) { err(id, k + ' חייב להיות 3'); continue; }
     p[k].forEach((r, i) => {
@@ -37,10 +57,6 @@ for (const p of P) {
       checkText(id, k + '[' + i + '].title', r.title);
       checkText(id, k + '[' + i + '].text', r.text);
     });
-  }
-  if (p.slots) {
-    if (p.slots.length !== 4) err(id, 'slots חייב להיות 4');
-    p.slots.forEach((s, i) => checkText(id, 'slot ' + i, typeof s === 'string' ? s : s.label));
   }
 }
 const topics = {};

@@ -2,7 +2,7 @@
   'use strict';
   const cfg = window.QUAD_CONFIG || {};
   const PUZZLES = window.QUAD_PUZZLES;
-  const DEFAULT_SLOTS = window.QUAD_SLOTS;
+  const DEFAULT_WORDS = window.QUAD_WORDS;
   const L = window.QuadLog;
   const $ = (s, r) => (r || document).querySelector(s);
   const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
@@ -25,12 +25,13 @@
       return '/' + (m || f);
     });
   }
+  function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 
   // ---------- משחק היום ----------
-  function todayKey() {
-    const d = new Date();
+  function dateKey(d) {
     return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
   }
+  function todayKey() { return dateKey(new Date()); }
   function dailyIndex() {
     const epoch = new Date((cfg.DAILY_EPOCH || '2026-01-01') + 'T00:00:00');
     const now = new Date(todayKey() + 'T00:00:00');
@@ -39,14 +40,15 @@
   }
 
   // ---------- מצב ----------
-  let puzzle, slots, mode, placement, origin, startedAt, moves, selected = null;
+  // words: 4 המילים שגוררים. wordPos[w] = null (במגש) | 0..3 (רבע במטריצה) | 'skip'
+  let puzzle, words, mode, wordPos, startedAt, moves, selected = null;
+  const wordInCell = (c) => wordPos.indexOf(c);
 
   // ---------- מסכים ----------
   function show(id) {
     $$('.screen').forEach(s => s.classList.toggle('active', s.id === id));
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
-
   function toast(msg) {
     const t = $('#toast');
     t.textContent = msg;
@@ -55,11 +57,11 @@
     toast._t = setTimeout(() => t.classList.remove('show'), 2200);
   }
 
-  // ריבועי תשובה לפאזל: מערך של 4 תוויות (מהכי הרבה להכי מעט), או אובייקטים חלקיים.
-  // ניקוד, צבע ואימוג'י נלקחים מברירת המחדל לפי המיקום, אם לא הוגדרו.
-  function normalizeSlots(custom) {
-    if (!custom) return DEFAULT_SLOTS;
-    return DEFAULT_SLOTS.map((d, i) => {
+  // מילים לפאזל: מערך של 4 (מהערך הגבוה לנמוך), מחרוזות או אובייקטים חלקיים.
+  // ערך, צבע ואימוג'י נלקחים מברירת המחדל לפי המיקום, אם לא הוגדרו.
+  function normalizeWords(custom) {
+    if (!custom) return DEFAULT_WORDS;
+    return DEFAULT_WORDS.map((d, i) => {
       const c = custom[i];
       if (c == null) return d;
       return Object.assign({}, d, typeof c === 'string' ? { label: c } : c);
@@ -69,44 +71,42 @@
   // ---------- התחלת פאזל ----------
   function startPuzzle(p, how) {
     puzzle = p; mode = how;
-    slots = normalizeSlots(p.slots);
-    placement = [null, null, null, null]; // לכל כרטיס: null (במטריצה) | 0..3 | 'skip'
+    words = normalizeWords(p.words);
+    wordPos = [null, null, null, null];
     moves = 0; selected = null;
     startedAt = Date.now();
 
     const badge = { daily: '📅 משחק היום', shared: '💌 מישהו שלח לך את זה', more: '🎲 ריבוע בונוס' }[how] || '';
     $('#game-badge').textContent = badge;
     $('#game-title').textContent = p.emoji + ' ' + g(p.title);
+    $('#game-q').textContent = p.question ? g(p.question) : '';
+    $('#game-q').hidden = !p.question;
     $('#col-0').textContent = g(p.cols[0]);
     $('#col-1').textContent = g(p.cols[1]);
     $('#row-0').textContent = g(p.rows[0]);
     $('#row-1').textContent = g(p.rows[1]);
 
-    // כרטיסים
+    // רבעי ריבוע הקסם (יעדי הגרירה)
     $$('.cell').forEach((cell, i) => {
-      cell.innerHTML = '';
-      const c = p.cards[i];
-      const el = document.createElement('div');
-      el.className = 'card pop-in';
-      el.style.animationDelay = (i * 70) + 'ms';
-      el.dataset.card = i;
-      el.innerHTML = '<span class="card-e">' + c.e + '</span><span class="card-t">' + g(c.t) + '</span>';
-      cell.appendChild(el);
-      bindCard(el);
+      const h = p.cells && p.cells[i];
+      cell.innerHTML = (h ? '<div class="cell-hint"><span>' + h.e + '</span> ' + esc(g(h.t)) + '</div>' : '') +
+        '<div class="cell-body"><span class="cell-drop">⬇</span></div>';
+      cell.classList.remove('filled');
     });
 
-    // ריבועי תשובה
-    const wrap = $('#slots');
-    wrap.innerHTML = '';
-    slots.forEach((s, i) => {
+    // המילים במגש
+    const tray = $('#tray');
+    tray.innerHTML = '';
+    words.forEach((w, i) => {
       const el = document.createElement('div');
-      el.className = 'slot slot-' + s.color;
-      el.dataset.slot = i;
-      el.innerHTML = '<div class="slot-label"><span>' + s.emoji + '</span> ' + g(s.label) + '</div><div class="slot-body"></div>';
-      wrap.appendChild(el);
+      el.className = 'word word-' + w.color + ' pop-in';
+      el.style.animationDelay = (i * 70) + 'ms';
+      el.dataset.word = i;
+      el.innerHTML = '<span class="word-e">' + w.emoji + '</span><span class="word-t">' + esc(g(w.label)) + '</span>';
+      tray.appendChild(el);
+      bindWord(el);
     });
     $('#skip-zone .slot-body').innerHTML = '';
-    $$('.slot').forEach(bindSlot);
     updateDone();
     show('screen-game');
     L.log('puzzle_start', { pid: p.id, topic: p.topic, mode: how });
@@ -115,11 +115,11 @@
   // ---------- גרירה (עכבר + מגע) ----------
   let drag = null;
 
-  function bindCard(el) {
+  function bindWord(el) {
     el.addEventListener('pointerdown', (ev) => {
       if (ev.button !== 0 && ev.pointerType === 'mouse') return;
       ev.preventDefault();
-      drag = { el, id: +el.dataset.card, x0: ev.clientX, y0: ev.clientY, active: false, pid: ev.pointerId };
+      drag = { el, id: +el.dataset.word, x0: ev.clientX, y0: ev.clientY, active: false, pid: ev.pointerId };
       el.setPointerCapture && el.setPointerCapture(ev.pointerId);
     });
     el.addEventListener('pointermove', onMove);
@@ -135,22 +135,22 @@
       const r = drag.el.getBoundingClientRect();
       const ghost = drag.el.cloneNode(true);
       ghost.classList.add('ghost');
-      ghost.classList.remove('pop-in', 'selected');
+      ghost.classList.remove('pop-in', 'selected', 'land');
       ghost.style.width = r.width + 'px';
       ghost.style.height = r.height + 'px';
       document.body.appendChild(ghost);
       drag.ghost = ghost;
       drag.offX = drag.x0 - r.left; drag.offY = drag.y0 - r.top;
       drag.el.classList.add('dragging');
+      document.body.classList.add('is-dragging');
       clearSelection();
-      L.log('drag_start', { pid: puzzle.id, card: drag.id, from: where(drag.id) });
+      L.log('drag_start', { pid: puzzle.id, word: drag.id, from: where(drag.id) });
     }
     if (drag.active) {
       drag.lastX = ev.clientX; drag.lastY = ev.clientY;
       if (!drag.raf) drag.raf = requestAnimationFrame(autoScroll);
-      drag.ghost.style.transform = 'translate(' + (ev.clientX - drag.offX) + 'px,' + (ev.clientY - drag.offY) + 'px) rotate(-4deg) scale(1.05)';
-      const target = dropTarget(ev.clientX, ev.clientY);
-      $$('.slot, .cell').forEach(s => s.classList.toggle('hover', s === target));
+      drag.ghost.style.transform = 'translate(' + (ev.clientX - drag.offX) + 'px,' + (ev.clientY - drag.offY) + 'px) rotate(-4deg) scale(1.08)';
+      highlight(dropTarget(ev.clientX, ev.clientY));
     }
   }
 
@@ -161,10 +161,10 @@
       const target = dropTarget(ev.clientX, ev.clientY);
       cancelDrag();
       if (target) dropOn(d.id, target, 'drag');
-      else L.log('drop_miss', { pid: puzzle.id, card: d.id });
+      else L.log('drop_miss', { pid: puzzle.id, word: d.id });
     } else {
       cancelDrag();
-      tapCard(d.id);
+      tapWord(d.id);
     }
   }
 
@@ -175,11 +175,7 @@
     let dy = 0;
     if (y > innerHeight - edge) dy = Math.ceil((y - (innerHeight - edge)) / 4);
     else if (y < edge) dy = -Math.ceil((edge - y) / 4);
-    if (dy) {
-      window.scrollBy(0, dy);
-      const target = dropTarget(drag.lastX, drag.lastY);
-      $$('.slot, .cell').forEach(s => s.classList.toggle('hover', s === target));
-    }
+    if (dy) { window.scrollBy(0, dy); highlight(dropTarget(drag.lastX, drag.lastY)); }
     drag.raf = requestAnimationFrame(autoScroll);
   }
 
@@ -188,117 +184,119 @@
     if (drag.raf) cancelAnimationFrame(drag.raf);
     drag.ghost && drag.ghost.remove();
     drag.el.classList.remove('dragging');
-    $$('.hover').forEach(s => s.classList.remove('hover'));
+    document.body.classList.remove('is-dragging');
+    highlight(null);
     drag = null;
   }
+
+  function highlight(target) { $$('.cell, .tray, .skip-zone').forEach(s => s.classList.toggle('hover', s === target)); }
 
   function dropTarget(x, y) {
     const el = document.elementFromPoint(x, y);
     if (!el) return null;
-    return el.closest('.slot') || el.closest('.cell');
+    return el.closest('.cell') || el.closest('.tray') || el.closest('.skip-zone');
   }
 
-  function where(id) { const p = placement[id]; return p === null ? 'matrix' : p; }
+  function where(id) { const p = wordPos[id]; return p === null ? 'tray' : p; }
 
   // ---------- הקשה (חלופה לגרירה) ----------
-  function tapCard(id) {
+  function tapWord(id) {
     if (selected === id) { clearSelection(); return; }
-    // אם כבר נבחר כרטיס ולוחצים על כרטיס שנמצא בריבוע – מחליפים ביניהם
-    if (selected !== null && typeof placement[id] === 'number') {
-      const slotEl = $('.slot[data-slot="' + placement[id] + '"]');
+    // נבחרה מילה ולוחצים על מילה שכבר ברבע – מחליפים ביניהן
+    if (selected !== null && typeof wordPos[id] === 'number') {
       const s = selected; clearSelection();
-      dropOn(s, slotEl, 'tap');
+      dropOn(s, $('.cell[data-cell="' + wordPos[id] + '"]'), 'tap');
       return;
     }
     clearSelection();
     selected = id;
-    $('.card[data-card="' + id + '"]').classList.add('selected');
+    $('.word[data-word="' + id + '"]').classList.add('selected');
     document.body.classList.add('has-selection');
-    $('#game-hint').textContent = 'עכשיו לחצו על הריבוע המתאים 👇';
+    $('#game-hint').textContent = 'עכשיו לחצו על הרבע המתאים בריבוע ☝️';
   }
   function clearSelection() {
     selected = null;
-    $$('.card.selected').forEach(c => c.classList.remove('selected'));
+    $$('.word.selected').forEach(c => c.classList.remove('selected'));
     document.body.classList.remove('has-selection');
-    $('#game-hint').textContent = 'גררו כל היגד לריבוע שמתאים לך';
+    $('#game-hint').textContent = 'גררו כל מילה לרבע שמתאים לה בריבוע הקסם';
   }
-  function bindSlot(el) {
-    el.addEventListener('click', (ev) => {
-      if (selected === null) return;
-      if (ev.target.closest('.card')) return; // טופל ב-tapCard
-      const s = selected; clearSelection();
-      dropOn(s, el, 'tap');
-    });
-  }
-  $$('.cell').forEach(cell => cell.addEventListener('click', (ev) => {
-    if (selected === null || ev.target.closest('.card')) return;
+  $$('.cell, .tray, .skip-zone').forEach(zone => zone.addEventListener('click', (ev) => {
+    if (selected === null || ev.target.closest('.word')) return;
     const s = selected; clearSelection();
-    dropOn(s, cell, 'tap');
+    dropOn(s, zone, 'tap');
   }));
 
-  // ---------- הנחת כרטיס ----------
+  // ---------- הנחת מילה ----------
   function dropOn(id, target, how) {
-    const from = placement[id];
+    const from = wordPos[id];
     let to;
-    if (target.classList.contains('cell')) to = null;
-    else to = target.dataset.slot === 'skip' ? 'skip' : +target.dataset.slot;
-
+    if (target.classList.contains('cell')) to = +target.dataset.cell;
+    else if (target.classList.contains('skip-zone')) to = 'skip';
+    else to = null;
     if (from === to) return;
 
-    // ריבוע תפוס? מחליפים – הכרטיס הקודם עובר למקום שממנו הגיע הכרטיס החדש
+    // רבע תפוס? המילה שהייתה בו עוברת למקום שממנו הגיעה המילה החדשה
     if (typeof to === 'number') {
-      const other = placement.findIndex((p, i) => p === to && i !== id);
-      if (other > -1) { placement[other] = from; moveEl(other); }
+      const other = wordInCell(to);
+      if (other > -1 && other !== id) { wordPos[other] = from; moveEl(other); }
     }
-    placement[id] = to;
+    wordPos[id] = to;
     moveEl(id);
     moves++;
     if (navigator.vibrate) try { navigator.vibrate(12); } catch (e) {}
-    L.log('card_drop', { pid: puzzle.id, card: id, from: from === null ? 'matrix' : from, to: to === null ? 'matrix' : to, how, ms: Date.now() - startedAt });
+    L.log('word_drop', { pid: puzzle.id, word: id, label: words[id].label, from: from === null ? 'tray' : from, to: to === null ? 'tray' : to, how, ms: Date.now() - startedAt });
     updateDone();
   }
 
   function moveEl(id) {
-    const el = $('.card[data-card="' + id + '"]');
-    const p = placement[id];
-    const parent = p === null ? $('.cell[data-cell="' + id + '"]')
+    const el = $('.word[data-word="' + id + '"]');
+    const p = wordPos[id];
+    const parent = p === null ? $('#tray')
       : p === 'skip' ? $('#skip-zone .slot-body')
-      : $('.slot[data-slot="' + p + '"] .slot-body');
+      : $('.cell[data-cell="' + p + '"] .cell-body');
     parent.appendChild(el);
     el.classList.remove('pop-in', 'land');
     void el.offsetWidth;
     el.classList.add('land');
-    $$('.cell').forEach(c => c.classList.toggle('empty', !c.querySelector('.card')));
-    $$('.slot').forEach(s => s.classList.toggle('filled', !!s.querySelector('.card')));
+    $$('.cell').forEach(c => c.classList.toggle('filled', !!c.querySelector('.word')));
+    $('#tray').classList.toggle('empty', !$('#tray .word'));
   }
 
   function updateDone() {
-    const done = placement.every(p => p !== null);
+    const done = wordPos.every(p => p !== null);
     const btn = $('#btn-done');
     btn.disabled = !done;
     btn.classList.toggle('ready', done);
-    const left = placement.filter(p => p === null).length;
-    btn.textContent = done ? 'מה זה אומר עליי? ✨' : 'נשארו עוד ' + left + ' היגדים';
+    const left = wordPos.filter(p => p === null).length;
+    btn.textContent = done ? 'מה זה אומר עליי? ✨' : (left === 1 ? 'נשארה עוד מילה אחת' : 'נשארו עוד ' + left + ' מילים');
   }
 
   // ---------- חישוב תוצאה ----------
+  // ערך כל רבע = הערך של המילה שהונחה בו (רבע ריק = 1.5, ניטרלי).
+  // משווים שורה מול שורה ועמודה מול עמודה, ובוחרים משפטים מ-rowRes / colRes.
   function computeResult() {
-    const sc = placement.map(p => (typeof p === 'number' ? slots[p].score : 1.5)); // דילוג = ניטרלי
-    const row0 = sc[0] + sc[1], row1 = sc[2] + sc[3];
-    const col0 = sc[0] + sc[2], col1 = sc[1] + sc[3];
-    const dRow = row0 - row1, dCol = col0 - col1;
+    const sc = [0, 1, 2, 3].map(c => { const w = wordInCell(c); return w > -1 ? words[w].value : 1.5; });
+    const dRow = (sc[0] + sc[1]) - (sc[2] + sc[3]);
+    const dCol = (sc[0] + sc[2]) - (sc[1] + sc[3]);
     const r = puzzle.rowRes[dRow > 0 ? 0 : dRow < 0 ? 1 : 2];
     const c = puzzle.colRes[dCol > 0 ? 0 : dCol < 0 ? 1 : 2];
-    const head = Math.abs(dRow) > Math.abs(dCol) ? r : c;
+    const key = (dRow > 0 ? 'r0' : dRow < 0 ? 'r1' : 'rT') + '_' + (dCol > 0 ? 'c0' : dCol < 0 ? 'c1' : 'cT');
+    const skipped = wordPos.filter(p => p === 'skip').length;
+
+    if (skipped === 4) return { emoji: '🕵️', title: g('[המסתורי/המסתורית]'), text: g('שום מילה לא מתאימה לך? את[ה/] [מסתורי/מסתורית] במיוחד 🕵️'), key: 'all_skip' };
+
+    // סידור "לפי הספר" (למשל מטריצת ניהול)
+    const isIdeal = puzzle.ideal && puzzle.ideal.every((w, cell) => wordPos[w] === cell);
+    let head = Math.abs(dRow) > Math.abs(dCol) ? r : c;
     const second = head === r ? c : r;
     let text = g(head.text) + ' ' + g(second.text);
-    const skipped = placement.filter(p => p === 'skip').length;
-    if (skipped === 4) text = 'שום דבר פה לא מתאים לך? את[ה/] [מסתורי/מסתורית] במיוחד 🕵️';
-    else if (skipped) text += ' ' + (skipped === 1 ? 'ויש דבר אחד שפשוט לא מתאים לך – גם זה אומר משהו 😉' : 'ויש כמה דברים שפשוט לא מתאימים לך – גם זה אומר משהו 😉');
-    const res = skipped === 4
-      ? { emoji: '🕵️', title: g('[המסתורי/המסתורית]'), text: g(text), key: 'all_skip' }
-      : { emoji: head.emoji, title: g(head.title), sub: g(second.title), text, key: (dRow > 0 ? 'r0' : dRow < 0 ? 'r1' : 'rT') + '_' + (dCol > 0 ? 'c0' : dCol < 0 ? 'c1' : 'cT') };
-    return res;
+    if (isIdeal && puzzle.idealRes) { head = puzzle.idealRes; text = g(puzzle.idealRes.text); }
+
+    // הערות מיוחדות למילה שנגררה לרבע מסוים
+    (puzzle.notes || []).forEach(n => { if (wordPos[n.word] === n.cell) text += ' ' + g(n.text); });
+
+    if (skipped) text += ' ' + (skipped === 1 ? 'ויש מילה אחת שפשוט לא מצאה מקום – גם זה אומר משהו 😉' : 'ויש כמה מילים שלא מצאו מקום – גם זה אומר משהו 😉');
+    return { emoji: head.emoji, title: g(head.title), text, key: isIdeal ? 'ideal' : key };
   }
 
   let lastResult = null;
@@ -310,34 +308,31 @@
     $('#result-title').textContent = res.title;
     $('#result-text').textContent = res.text;
 
-    // סיכום הבחירות
+    // ריבוע הקסם של המשתמש
     const recap = $('#recap');
-    recap.innerHTML = '';
-    slots.forEach((s, i) => {
-      const id = placement.indexOf(i);
-      const row = document.createElement('div');
-      row.className = 'recap-row slot-' + s.color;
-      row.innerHTML = '<b>' + s.emoji + ' ' + g(s.label) + '</b><span>' + (id > -1 ? puzzle.cards[id].e + ' ' + g(puzzle.cards[id].t) : '—') + '</span>';
-      recap.appendChild(row);
+    let html = '<div class="mini"><div></div><b>' + esc(g(puzzle.cols[0])) + '</b><b>' + esc(g(puzzle.cols[1])) + '</b>';
+    [0, 1].forEach(row => {
+      html += '<b class="mini-r">' + esc(g(puzzle.rows[row])) + '</b>';
+      [0, 1].forEach(col => {
+        const cell = row * 2 + col, w = wordInCell(cell);
+        html += w > -1
+          ? '<span class="word-' + words[w].color + '">' + words[w].emoji + ' ' + esc(g(words[w].label)) + '</span>'
+          : '<span class="mini-empty">—</span>';
+      });
     });
-    placement.forEach((p, id) => {
-      if (p !== 'skip') return;
-      const row = document.createElement('div');
-      row.className = 'recap-row slot-gray';
-      row.innerHTML = '<b>🤷 לא מתאים</b><span>' + puzzle.cards[id].e + ' ' + g(puzzle.cards[id].t) + '</span>';
-      recap.appendChild(row);
-    });
+    html += '</div>';
+    const skippedW = wordPos.map((p, i) => (p === 'skip' ? i : -1)).filter(i => i > -1);
+    if (skippedW.length) html += '<div class="mini-skip">🤷 לא מצאו מקום: ' + skippedW.map(i => esc(g(words[i].label))).join(', ') + '</div>';
+    recap.innerHTML = html;
 
-    // שיתוף
-    $('#btn-wa').href = 'https://wa.me/?text=' + encodeURIComponent(shareText());
+    $('#btn-wa').href = 'https://wa.me/?text=' + encodeURIComponent(shareText('whatsapp'));
 
     // רצף ימים
     if (mode === 'daily') {
       const last = store.get('lastDaily', null), today = todayKey();
       if (last !== today) {
         const y = new Date(); y.setDate(y.getDate() - 1);
-        const yKey = y.getFullYear() + '-' + String(y.getMonth() + 1).padStart(2, '0') + '-' + String(y.getDate()).padStart(2, '0');
-        store.set('streak', last === yKey ? store.get('streak', 0) + 1 : 1);
+        store.set('streak', last === dateKey(y) ? store.get('streak', 0) + 1 : 1);
         store.set('lastDaily', today);
       }
     }
@@ -346,8 +341,8 @@
 
     L.log('puzzle_complete', {
       pid: puzzle.id, topic: puzzle.topic, mode, ms, moves, result: res.key, result_title: res.title,
-      placement: placement.map(p => (p === null ? 'matrix' : p)),
-      skipped: placement.filter(p => p === 'skip').length,
+      layout: [0, 1, 2, 3].map(c => { const w = wordInCell(c); return w > -1 ? words[w].label : null; }),
+      skipped: wordPos.filter(p => p === 'skip').length,
     });
     show('screen-result');
     setTimeout(confetti, 250);
@@ -360,7 +355,7 @@
   }
   function shareText(channel) {
     const sq = { green: '🟩', blue: '🟦', orange: '🟧', red: '🟥' };
-    const grid = placement.map(p => (typeof p === 'number' ? sq[slots[p].color] : '⬜'));
+    const grid = [0, 1, 2, 3].map(c => { const w = wordInCell(c); return w > -1 ? sq[words[w].color] : '⬜'; });
     return lastResult.emoji + ' יצא לי: ' + lastResult.title + '\n' +
       '"' + lastResult.text + '"\n\n' +
       grid[0] + grid[1] + '\n' + grid[2] + grid[3] + '\n\n' +
@@ -419,7 +414,7 @@
     const cv = $('#confetti'), ctx = cv.getContext('2d');
     const dpr = window.devicePixelRatio || 1;
     cv.width = innerWidth * dpr; cv.height = innerHeight * dpr;
-    ctx.scale(dpr, dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const colors = ['#7c3aed', '#ec4899', '#facc15', '#22c55e', '#3b82f6', '#f97316'];
     const parts = Array.from({ length: 140 }, () => ({
       x: innerWidth / 2 + (Math.random() - .5) * 80, y: innerHeight * .35,
@@ -449,7 +444,7 @@
     d.innerHTML = '<b>🛠 לוגים (' + logs.length + ')</b> ' +
       Object.entries(counts).map(([k, v]) => k + ':' + v).join(' · ') +
       '<div><button id="dbg-dl">הורדה JSON</button> <button id="dbg-clr">ניקוי</button> ' +
-      '<select id="dbg-pz">' + PUZZLES.map(p => '<option value="' + p.id + '">' + p.title + '</option>').join('') + '</select></div>';
+      '<select id="dbg-pz">' + PUZZLES.map(p => '<option value="' + p.id + '">' + esc(g(p.title)) + '</option>').join('') + '</select></div>';
     document.body.appendChild(d);
     $('#dbg-dl').onclick = () => L.download();
     $('#dbg-clr').onclick = () => { L.clear(); toast('נוקה'); };

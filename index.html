@@ -6,7 +6,7 @@
   <title>ריבועי קסם</title>
   <meta name="description" content="גוררים 4 היגדים, מגלים משהו על עצמך. משחק יומי קצר וכיפי.">
   <meta property="og:title" content="ריבועי קסם 🔮 מה זה אומר עליך?">
-  <meta property="og:description" content="4 היגדים, 4 ריבועים, אמת אחת. בוא/י לגלות.">
+  <meta property="og:description" content="4 מילים, ריבוע אחד, אמת אחת. בוא/י לגלות.">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://yakijowejoy.github.io/Quadrants/">
   <meta property="og:image" content="https://yakijowejoy.github.io/Quadrants/og.jpg">
@@ -29,7 +29,7 @@
         <div class="logo-grid"><span></span><span></span><span></span><span></span></div>
         <h1>ריבועי קסם</h1>
       </div>
-      <p class="tagline">4 היגדים. 4 ריבועים. אמת אחת עליך 🔮</p>
+      <p class="tagline">4 מילים. ריבוע אחד. אמת אחת עליך 🔮</p>
       <div class="streak" id="streak-intro" hidden></div>
       <p class="ask">איך לפנות אליך?</p>
       <div class="gender-pick">
@@ -44,7 +44,8 @@
       <header class="game-head">
         <div class="badge" id="game-badge">משחק היום</div>
         <h2 id="game-title"></h2>
-        <p class="hint" id="game-hint">גררו כל היגד לריבוע שמתאים לך</p>
+        <p class="question" id="game-q" hidden></p>
+        <p class="hint" id="game-hint">גררו כל מילה לרבע שמתאים לה בריבוע הקסם</p>
       </header>
 
       <div class="matrix" id="matrix">
@@ -59,12 +60,12 @@
         <div class="cell" data-cell="3"></div>
       </div>
 
-      <div class="arrow-down" aria-hidden="true">⬇</div>
+      <div class="arrow-up" aria-hidden="true">⬆</div>
 
-      <div class="slots" id="slots"></div>
+      <div class="tray" id="tray"></div>
 
-      <div class="skip-zone slot" data-slot="skip" id="skip-zone">
-        <span class="skip-label">🤷 אף תשובה לא מתאימה</span>
+      <div class="skip-zone" id="skip-zone">
+        <span class="skip-label">🤷 המילה הזאת לא מתאימה לשום רבע</span>
         <div class="slot-body"></div>
       </div>
 
