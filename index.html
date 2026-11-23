@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>ריבועי קסם</title>
+  <meta name="description" content="גוררים 4 היגדים, מגלים משהו על עצמך. משחק יומי קצר וכיפי.">
+  <meta property="og:title" content="ריבועי קסם 🔮 מה זה אומר עליך?">
+  <meta property="og:description" content="4 היגדים, 4 ריבועים, אמת אחת. בוא/י לגלות.">
+  <meta property="og:type" content="website">
+  <meta name="theme-color" content="#7c3aed">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;600;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="bg-blobs" aria-hidden="true"><i></i><i></i><i></i></div>
+
+  <main id="app">
+    <!-- מסך פתיחה -->
+    <section id="screen-intro" class="screen active">
+      <div class="logo">
+        <div class="logo-grid"><span></span><span></span><span></span><span></span></div>
+        <h1>ריבועי קסם</h1>
+      </div>
+      <p class="tagline">4 היגדים. 4 ריבועים. אמת אחת עליך 🔮</p>
+      <div class="streak" id="streak-intro" hidden></div>
+      <p class="ask">איך לפנות אליך?</p>
+      <div class="gender-pick">
+        <button class="btn btn-pill" data-gender="m">🙋‍♂️ אני בן</button>
+        <button class="btn btn-pill" data-gender="f">🙋‍♀️ אני בת</button>
+      </div>
+      <button class="link-btn" data-gender="n">דלגו, תפנו אליי ככה וככה</button>
+    </section>
+
+    <!-- מסך משחק -->
+    <section id="screen-game" class="screen">
+      <header class="game-head">
+        <div class="badge" id="game-badge">משחק היום</div>
+        <h2 id="game-title"></h2>
+        <p class="hint" id="game-hint">גררו כל היגד לריבוע שמתאים לך</p>
+      </header>
+
+      <div class="matrix" id="matrix">
+        <div class="corner"></div>
+        <div class="col-h" id="col-0"></div>
+        <div class="col-h" id="col-1"></div>
+        <div class="row-h" id="row-0"></div>
+        <div class="cell" data-cell="0"></div>
+        <div class="cell" data-cell="1"></div>
+        <div class="row-h" id="row-1"></div>
+        <div class="cell" data-cell="2"></div>
+        <div class="cell" data-cell="3"></div>
+      </div>
+
+      <div class="arrow-down" aria-hidden="true">⬇</div>
+
+      <div class="slots" id="slots"></div>
+
+      <div class="skip-zone slot" data-slot="skip" id="skip-zone">
+        <span class="skip-label">🤷 אף תשובה לא מתאימה</span>
+        <div class="slot-body"></div>
+      </div>
+
+      <button class="btn btn-primary btn-big" id="btn-done" disabled>מה זה אומר עליי? ✨</button>
+    </section>
+
+    <!-- מסך תוצאה -->
+    <section id="screen-result" class="screen">
+      <div class="result-card" id="result-card">
+        <div class="result-emoji" id="result-emoji"></div>
+        <div class="result-kicker">התוצאה שלך</div>
+        <h2 class="result-title" id="result-title"></h2>
+        <p class="result-text" id="result-text"></p>
+        <div class="recap" id="recap"></div>
+      </div>
+      <div class="actions">
+        <button class="btn btn-share btn-big" id="btn-share">📣 שתפו את החברים</button>
+        <div class="share-row">
+          <a class="btn btn-wa" id="btn-wa" target="_blank" rel="noopener">וואטסאפ</a>
+          <button class="btn btn-ghost" id="btn-copy">העתקת קישור</button>
+        </div>
+        <button class="btn btn-primary" id="btn-next">עוד ריבוע קסם 🎲</button>
+        <button class="link-btn" id="btn-replay">לשחק שוב את זה</button>
+      </div>
+    </section>
+  </main>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <canvas id="confetti" aria-hidden="true"></canvas>
+
+  <script src="js/config.js"></script>
+  <script src="js/logger.js"></script>
+  <script src="js/puzzles.js"></script>
+  <script src="js/game.js"></script>
+</body>
+</html>
